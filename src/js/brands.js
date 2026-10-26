@@ -1,11 +1,16 @@
 /*
  * Tile styling per brand. `match` is tested against "<name> <id>" of an installed app.
  * `mark` is a file in img/marks/; the build recolours it in `fg` (img/tiles/<key>.svg), shown over `bg`.
- * `text` instead of `mark` draws a typographic logo (for brands without an available mark).
+ * `text` instead of `mark` draws a typographic logo (for brands without an available mark);
+ * `size` optionally overrides its font size in px (default 60).
  * `pad` optionally overrides the mark's [vertical, horizontal] inset in % of the tile (default [26, 22]).
  */
 window.BRANDS = [
+    { key: 'youtubetv', match: /youtube ?tv/i, text: 'YouTube TV', size: 40, bg: '#0f0f0f', fg: '#ff0033' },
     { key: 'youtube', match: /youtube|tizentube|cobalt-yt/i, mark: 'youtube', bg: '#e62117', fg: '#fff' },
+    { key: 'paramount', match: /paramount/i, text: 'Paramount+', size: 38, bg: 'linear-gradient(135deg,#0033a0,#0064ff)', fg: '#fff' },
+    { key: 'hulu', match: /hulu/i, text: 'hulu', bg: '#1c1f26', fg: '#1ce783' },
+    { key: 'espn', match: /espn/i, text: 'ESPN', bg: '#1a1a1a', fg: '#ff0033' },
     { key: 'netflix', match: /netflix/i, mark: 'netflix', bg: '#141414', fg: '#e50914' },
     { key: 'primevideo', match: /prime ?video/i, mark: 'primevideo', bg: 'linear-gradient(135deg,#0b4f7a,#1aa0e0)', fg: '#fff', pad: [12, 10] },
     { key: 'disneyplus', match: /disney/i, mark: 'disneyplus', bg: 'linear-gradient(135deg,#091550,#1f5bd8)', fg: '#fff' },
@@ -22,7 +27,8 @@ window.BRANDS = [
     // Consoles (used by inputs in config.js)
     { key: 'playstation', mark: 'playstation', bg: 'linear-gradient(135deg,#00205c,#0070d1)', fg: '#fff' },
     { key: 'xbox', mark: 'xbox', bg: 'linear-gradient(135deg,#0a3a0a,#16a016)', fg: '#fff' },
-    { key: 'switch', mark: 'nintendoswitch', bg: 'linear-gradient(135deg,#b3000e,#ff2a2a)', fg: '#fff' }
+    { key: 'switch', mark: 'nintendoswitch', bg: 'linear-gradient(135deg,#b3000e,#ff2a2a)', fg: '#fff' },
+    { key: 'pc', bg: 'linear-gradient(135deg,#1e293b,#475569)', fg: '#fff' }
 ];
 
 window.findBrand = function (keyOrApp) {

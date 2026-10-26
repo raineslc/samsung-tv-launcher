@@ -66,6 +66,7 @@
             if (item.brand.text) {
                 var word = el('div', 'wordmark', item.brand.text);
                 word.style.color = item.brand.fg;
+                if (item.brand.size) word.style.setProperty('--wordmark-size', item.brand.size + 'px');
                 tile.appendChild(word);
             } else {
                 tile.appendChild(markEl(item.brand));
@@ -300,8 +301,11 @@
     }
 
     // Colour keys are hidden shortcuts; everything is also reachable from Settings.
+    // Play is the way out to Samsung's own Home (the Home button itself is left to the TV).
     function colourKey(k, view) {
-        if (k === KEY.RED || k === KEY.R) {
+        if (k === KEY.PLAY || k === KEY.PLAY_PAUSE || k === KEY.P) {
+            Settings.openSamsungHome();
+        } else if (k === KEY.RED || k === KEY.R) {
             UI.show(view === 'all' ? 'home' : 'all');
         } else if (k === KEY.GREEN || k === KEY.G) {
             if (view === 'home') nextWallpaper();
@@ -402,13 +406,19 @@
         } catch (e) {
             log('Colour keys unavailable: ' + DevLog.errorText(e));
         }
+        // Separate batch so a remote without media keys still gets its colour keys.
+        try {
+            tizen.tvinputdevice.registerKeyBatch(['MediaPlay', 'MediaPlayPause']);
+        } catch (e) {
+            log('Play keys unavailable: ' + DevLog.errorText(e));
+        }
     }
 
     function registerViews() {
         UI.register('home', {
             el: $('home'),
             startRow: 1,
-            hints: [['OK', 'Open'], ['▲', 'Settings']],
+            hints: [['OK', 'Open'], ['▲', 'Settings'], ['▶', 'Samsung Home']],
             rows: function () {
                 return [[$('gear')], UI.children($('apps-row')), UI.children($('inputs-row'))];
             },

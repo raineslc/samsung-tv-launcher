@@ -20,6 +20,11 @@
         app('org.tizen.primevideo', 'Prime Video'),
         app('MCmYXNxgcu.DisneyPlus', 'Disney+'),
         app('com.samsung.tv.aria-video', 'Apple TV'),
+        app('PvWgqxV3Xa.YouTubeTV', 'YouTube TV'),
+        app('cBqvTzPFwq.ParamountPlus', 'Paramount+'),
+        app('3201601007625', 'Hulu'),
+        app('cj37Ni3qXM.HBONow', 'HBO Max'),
+        app('3201708014618', 'ESPN'),
         app('rJeHak5zRg.Spotify', 'Spotify'),
         app('Jz7aUrV2Q4.Twitch', 'Twitch'),
         app('E0P3lRI4H7.MYTF1', 'TF1+ : Streaming, TV en Direct'),
@@ -38,8 +43,8 @@
     ];
 
     var sources = {
-        connected: [{ type: 'TV', number: 1 }, { type: 'HDMI', number: 2 }, { type: 'HDMI', number: 4 }],
-        disconnected: [{ type: 'HDMI', number: 1 }, { type: 'HDMI', number: 3 }]
+        connected: [{ type: 'TV', number: 1 }, { type: 'HDMI', number: 1 }, { type: 'HDMI', number: 2 }],
+        disconnected: [{ type: 'HDMI', number: 3 }, { type: 'HDMI', number: 4 }]
     };
     var currentSource = sources.connected[0];
 

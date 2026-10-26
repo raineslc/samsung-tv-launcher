@@ -20,9 +20,9 @@
 
     var KEY = {
         LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40, ENTER: 13, BACK: 10009,
-        RED: 403, GREEN: 404, YELLOW: 405, BLUE: 406,
-        // Desktop preview equivalents: Esc/Backspace = Back, R/G/Y/B = colour keys
-        ESC: 27, BACKSPACE: 8, R: 82, G: 71, Y: 89, B: 66
+        RED: 403, GREEN: 404, YELLOW: 405, BLUE: 406, PLAY: 415, PLAY_PAUSE: 10252,
+        // Desktop preview equivalents: Esc/Backspace = Back, R/G/Y/B = colour keys, P = Play
+        ESC: 27, BACKSPACE: 8, R: 82, G: 71, Y: 89, B: 66, P: 80
     };
 
     var views = {};

@@ -12,21 +12,22 @@
  * inputs: HDMI ports shown in the second row. Set `hdmi` to the port each device is plugged into.
  */
 window.LAUNCHER_CONFIG = {
+    // Matched by name until the real ids are read from "All apps" on the TV (QN65Q80D, Tizen 8).
     apps: [
-        { id: 'xvvl3S1TT1.TizenTubeStandalone', label: 'YouTube', brand: 'youtube' },
-        { id: 'rJeHak5zRg.Spotify', label: 'Spotify' },
-        { id: 'Jz7aUrV2Q4.Twitch', label: 'Twitch' },
-        { id: 'E0P3lRI4H7.MYTF1', label: 'TF1+' },
-        { id: 'org.tizen.netflix-app', label: 'Netflix' },
-        { id: 'org.tizen.primevideo', label: 'Prime Video' },
-        { id: 'MCmYXNxgcu.DisneyPlus', label: 'Disney+' },
-        { id: 'com.samsung.tv.aria-video', label: 'Apple TV' }
+        { match: '^youtube$|cobalt-yt', label: 'YouTube', brand: 'youtube' },
+        { match: 'youtube ?tv', label: 'YouTube TV', brand: 'youtubetv' },
+        { match: 'netflix', label: 'Netflix', brand: 'netflix' },
+        { match: 'paramount', label: 'Paramount+', brand: 'paramount' },
+        { match: 'disney', label: 'Disney+', brand: 'disneyplus' },
+        { match: 'prime ?video', label: 'Prime Video', brand: 'primevideo' },
+        { match: 'hulu', label: 'Hulu', brand: 'hulu' },
+        { match: 'hbo|^max$', label: 'HBO Max', brand: 'max' },
+        { match: 'espn', label: 'ESPN', brand: 'espn' }
     ],
 
     inputs: [
-        { hdmi: 1, label: 'Nintendo Switch 2', brand: 'switch' },
-        { hdmi: 2, label: 'PlayStation 5', brand: 'playstation' },
-        { hdmi: 4, label: 'Xbox Series X', brand: 'xbox' }
+        { hdmi: 1, label: 'PC', brand: 'pc' }
+        // { hdmi: ?, label: 'PlayStation 4', brand: 'playstation' }   port not confirmed yet
     ],
 
     // How an input tile switches the TV. See README "HDMI inputs".
@@ -35,7 +36,7 @@ window.LAUNCHER_CONFIG = {
     //   'inapp'          show the input full screen inside the launcher (Back returns)
     inputMethod: 'switch+viewer',
 
-    locale: 'en-GB',
+    locale: 'en-US',
 
     theme: {
         // Starting wallpaper (key from js/wallpapers.js), or null for none (plain gradient).
@@ -55,7 +56,7 @@ window.LAUNCHER_CONFIG = {
     weather: {
         latitude: null,
         longitude: null,
-        unit: 'celsius'         // 'celsius' | 'fahrenheit'
+        unit: 'fahrenheit'      // 'celsius' | 'fahrenheit'
     },
 
     /*
