@@ -1,301 +1,379 @@
-# Arn0 Launcher
+# Samsung Q80D Custom Launcher
 
-A quieter home screen for a Samsung Tizen TV: a clock, a row of your apps, a row of your consoles,
-and nothing else.
+A cleaner home screen for my 65" Samsung Q80D: a clock, one row of the streaming apps I actually use,
+one row for HDMI devices, and nothing else. No ads, no "recommended" rows, no Samsung TV Plus.
 
-![The launcher on the "Milky Way" wallpaper, showing the clock, an apps row and a consoles row](docs/preview.png)
+It's a fork of [NelsonEU/arn0-tv](https://github.com/NelsonEU/arn0-tv), customised for this TV
+(US model, Tizen 8). It's a Tizen web app (`.wgt`) installed through Developer Mode. It doesn't
+root or modify the TV, and uninstalling it puts everything back the way it was.
 
-*The browser preview, with the bundled Manrope font and the "Milky Way" wallpaper.*
+![Home screen: clock, apps row (YouTube, YouTube TV, Netflix, Paramount+, Disney+, Prime Video…) and a PC input tile](docs/screenshots/preview-home.png)
 
-I built this for one TV in my living room, a Samsung Q70B on Tizen 6.5, because its own home
-screen had become a shop. It does what I want: the apps I use, the consoles I own, driven by the normal remote. I am sharing it as a starting point rather than a product.
+*Browser preview of the customised Home screen. The hint bar at the bottom shows ▶ = Samsung Home.*
 
-**Use it at your own risk.** The optional Home-button setup changes TV preferences that Samsung
-does not document. See [the setup guide](docs/setup-tv.md) before using it.
+---
 
-## Recommended approach
+## Contents
 
-I highly recommend forking it and building on top of it, ideally with a coding agent that can help
-you understand and adapt the setup. Start with the browser preview, make the interface your own,
-then work through TV installation when you're ready. Native Home/startup changes need particular
-care; [the setup guide](docs/setup-tv.md) covers the risks and recovery steps.
+1. [Project write-up](#project-write-up): what was done and why
+2. [The TV](#the-tv)
+3. [What changed from upstream](#what-changed-from-upstream)
+4. [Using it with the remote](#using-it-with-the-remote)
+5. [How the code is organised](#how-the-code-is-organised)
+6. [Build](#build)
+7. [Install or update on the TV](#install-or-update-on-the-tv)
+8. [Configuration](#configuration)
+9. [Maintenance and to-do](#maintenance-and-to-do)
+10. [Troubleshooting](#troubleshooting)
+11. [Tools not in this repo](#tools-not-in-this-repo)
+12. [Repository layout](#repository-layout)
+13. [Credits and licence](#credits-and-licence)
 
-## Try the interface
+---
 
-Needs Node.js 20 or newer. Nothing is installed and no TV is involved.
+## Project write-up
 
-```sh
-git clone https://github.com/<you>/arn0-tv.git
-cd arn0-tv
-npm run preview        # http://localhost:8080
-```
+### Goal
 
-Navigate with the arrow keys and Enter; Esc or Backspace is Back; `R` `G` `Y` `B` are the remote's
-colour keys. `#all` and `#lab` in the URL open those screens directly.
+Samsung's own home screen on the Q80D is mostly advertising: sponsored tiles, Samsung TV Plus
+channels and "recommended" content wrapped around the few apps I open. The goal was:
 
-The preview runs against [`src/js/tizen-mock.js`](src/js/tizen-mock.js), a stand-in for the Tizen
-APIs that is inert on the TV itself. So the layout, focus behaviour, settings, fonts and wallpapers
-are all real, while launching apps and switching HDMI inputs only do something on a real TV.
+- **Debloat the TV** in its own settings (turn off what can be turned off).
+- **Replace the home screen** with a simple launcher showing my nine streaming apps and my HDMI
+  devices (a PC and a PS4).
+- **Keep it reversible**: no rooting, no firmware tricks, and anything changed can be undone.
 
-## What you can change
+### Approach
 
-Everything in [`src/js/config.js`](src/js/config.js) is meant to be edited: which apps appear, which
-consoles and on which HDMI ports, how an input tile switches the TV, the locale, the starting
-wallpaper. Most of it is also editable from the launcher's own Settings once it is on the TV, and
-the TV's copy wins (`config.js` only supplies the defaults).
+The work was split into phases (about 4–7 hours in total):
 
-Beyond config: tile colours and brand marks in [`src/js/brands.js`](src/js/brands.js), the whole
-look in [`src/css/style.css`](src/css/style.css), and your own photos as wallpapers.
+| Phase | What | Status |
+| --- | --- | --- |
+| 0 | Debloat Samsung's settings | Done |
+| 1 | Enable Developer Mode, build the launcher, first install | Done (2026-10-25) |
+| 2 | Customise apps, brands, inputs, locale, Play-key shortcut | Done (2026-10-25) |
+| 3 | Make the remote's Home button open the launcher | **Skipped on purpose** (see below) |
 
-Anything specific to your own TV — weather coordinates, a devlog address — belongs in
-`src/js/config.local.js` instead. That file is gitignored and merged over `config.js` one level
-deep, so the tracked file keeps its nulls while the local one reaches both the browser preview and
-the packaged `.wgt`. Nothing to strip before a push, nothing to restore before a build. Copy
-[`config.local.example.js`](src/js/config.local.example.js) to start.
+#### Phase 0: settings debloat
 
-## Coding agent prompt
+This happens in the TV's own Settings menu. No code is involved. Things worth turning off or
+reviewing (menu names move around between firmware versions):
 
-This project was largely built with coding agents, and adapting it is a reasonable thing to hand to
-one. A starting prompt that keeps the agent on the safe side of the line:
+- Privacy / terms: viewing-information services, interest-based ads, voice-recognition services.
+- Smart Hub autorun and Samsung TV Plus autostart.
+- **Autorun Last App: ON.** The launcher relies on this: after a power cycle the TV reopens
+  whatever was open last, which is usually the launcher.
 
-```
-This is a Tizen TV launcher (see README.md). Work in the browser preview only.
+#### Phase 1: Developer Mode and first install
 
-Do: edit src/js/config.js, src/js/brands.js and src/css/style.css; run `npm run preview`
-and check the result; keep the 1920x1080 stage and remote-only navigation intact.
+1. Put the PC and TV on the **same network**. My house has an AT&T gateway (`192.168.1.x`) with a
+   Google Nest Wifi behind it (`192.168.86.x`, double NAT). The TV is on the AT&T network, so the PC
+   has to join that one as well. From the Nest side the PC can't reach the TV.
+2. On the TV, enable **Developer Mode**: open *Apps*, type `1 2 3 4 5` on the remote's number pad,
+   switch Developer mode **On**, enter the PC's IP address, then fully restart the TV (hold the
+   power button until it reboots).
+3. Check from the PC: `http://<tv-ip>:8001/api/v2/` should list `"developerMode": "1"` and the
+   PC's IP as `developerIP`.
+4. Build the package: `npm run build` → `dist/arn0-launcher.wgt`.
+5. Sign and install it with **Apps2Samsung**, which creates a Samsung developer certificate
+   for this TV. The first sign-in has to happen in a browser *on the PC* (it redirects to
+   `localhost:4794`). After that the CLI installs without any sign-in:
 
-Do not: connect to a TV, run sdb, sign or install a package, or touch anything
-under native/. Do not change Home or startup behaviour.
-```
+   ```powershell
+   .\tools\Apps2Samsung-cli\apps2samsung-cli.exe install arn0-tv\dist\arn0-launcher.wgt --tv 192.168.1.68
+   ```
 
-TV work is different in kind: it needs a machine on the same network as the TV, so an agent that
-can only read this repo cannot operate the TV. This repository includes the guarded helper source,
-but does not include a ready-to-run SDB staging/runner script or a per-TV recovery snapshot.
+The launcher (app id `Arn0Lnchr0.Launcher`, v0.6.12) then shows up in the TV's app list.
 
-## Put it on a TV
+#### Phase 2: customisation
 
-**[docs/setup-tv.md](docs/setup-tv.md)** — installing the package, then optionally the Home button
-and power-on changes, with the recovery steps for each.
+All the changes are listed in [What changed from upstream](#what-changed-from-upstream). In short,
+upstream was built for one person's European TV with a Switch, PS5 and Xbox. This fork swaps that
+for my US apps, a PC and a PS4, US date format and Fahrenheit, and adds a shortcut back to
+Samsung's own Home.
 
-Installing the launcher is reversible by uninstalling it. The Home-button change is reversible
-with the saved per-device baseline, but it rewrites undocumented platform preferences. The
-launcher works fine without that change, open it from the app list like any other app.
+#### Phase 3: Home button (skipped)
 
-Evidence and limits:
+Upstream ships a native helper ([`native/Control.cs`](native/Control.cs)) that rewrites Samsung's
+internal settings so the remote's **Home** button opens the launcher. I deliberately did **not**
+use it here:
+
+- It is guarded to the upstream author's 2022 Q70B on Tizen 6.5 (firmware `T-PTMDEUC-1720.7`), and
+  it refuses to run on anything else. This TV is a 2024 Q80D on Tizen 8 (`T-NKMAKUC-2743.0`).
+- It writes undocumented platform preferences. Getting that wrong on an untested firmware could
+  leave Home pointing at nothing.
+- Samsung's Home is still useful: TV settings, input menus and Game Bar all hang off it.
+
+**Decision:** the Home button stays Samsung's. The launcher is reached from the app list or
+through *Autorun Last App*. To get the other way (from the launcher to Samsung Home), press
+**▶ Play** on the remote. This has been confirmed working on the TV.
+
+### Result
+
+- The launcher installs and runs on the Q80D.
+- The Home row shows YouTube, YouTube TV, Netflix, Paramount+, Disney+, Prime Video, Hulu,
+  HBO Max and ESPN, each with a branded tile.
+- The PC shows as an HDMI tile, and ▶ Play opens Samsung Home.
+- Settings (wallpaper, fonts, clock, screen saver, Home app order, consoles) can all be changed
+  from the remote and are saved on the TV.
+
+![End of the apps row: Hulu, HBO Max, ESPN, All apps](docs/screenshots/preview-allapps.png)
+
+---
+
+## The TV
 
 | | |
 | --- | --- |
-| Reference device | QE65Q70BATXXC (Q70B, 2022), firmware T-PTMDEUC-1720.7, Tizen 6.5, armv7 |
-| Install | `.wgt` via Apps2Samsung or Tizen Studio CLI; works |
-| Home button | Tested on the reference device: opens `Arn0Lnchr0.Launcher` |
-| Power-on | `auto_start` was `1` and remains `1`; the helper does not change it. Cold-boot behaviour has not been independently validated as part of the Home-button change |
-| Method | Developer Mode, UID 901, platform `vconf` / `aul` calls. **No root.** |
-| Open items | Untested on `auto_start=0` TVs; behaviour after a firmware update unknown |
-| Other models | **No compatibility claim.** The helpers check architecture, UID, and firmware string, but do not verify the TV model |
+| Model | QN65Q8DTAFXZA (65" Q80D, 2024, US) |
+| Firmware | T-NKMAKUC-2743.0 |
+| OS | Tizen 8.0 |
+| Network | AT&T gateway, `192.168.1.0/24`; TV at `192.168.1.68` (reserve it on the router so it doesn't change) |
+| HDMI | PC on HDMI 1; PS4 port not confirmed yet |
+| Launcher | `Arn0Lnchr0.Launcher` v0.6.12, Samsung *public* developer certificate |
 
-## Reference
+---
 
-### Commands
+## What changed from upstream
+
+Two commits sit on top of upstream `b35c292`:
+
+| File | Change |
+| --- | --- |
+| [`src/js/config.js`](src/js/config.js) | New Home row of nine apps, **matched by name** (no store ids are hard-coded yet). Inputs: PC on HDMI 1, PS4 placeholder. `en-US` locale, Fahrenheit. |
+| [`src/js/brands.js`](src/js/brands.js) | New tile styles: YouTube TV, Paramount+, Hulu, ESPN (text wordmarks, because no SVG mark is bundled for them) and a `pc` style for the PC input. New optional `size` for wordmark font size. |
+| [`src/css/style.css`](src/css/style.css) | Wordmark font size reads `--wordmark-size` (default 60px), so long names like "Paramount+" fit. |
+| [`src/js/home.js`](src/js/home.js) | Applies the wordmark size. Registers the **MediaPlay / MediaPlayPause** keys and maps them to *Open Samsung Home*. Adds the ▶ hint on Home. |
+| [`src/js/ui.js`](src/js/ui.js) | Key codes for Play (415), Play/Pause (10252), and `P` for the desktop preview. |
+| [`src/js/settings.js`](src/js/settings.js) | Exports `openSamsungHome` for the Play key. Adds **PC** to the console logo list (Settings → Consoles → Logo). |
+| [`src/js/tizen-mock.js`](src/js/tizen-mock.js) | Browser preview: fake YouTube TV, Paramount+, Hulu, HBO Max and ESPN apps; HDMI 1 and 2 connected. |
+| [`scripts/build.sh`](scripts/build.sh) | Git Bash on Windows has no `zip`, so the script now falls back to Python's `zipfile` to build the `.wgt`. |
+| All of `src/js/` and `native/` | Comments added throughout. |
+| `README.md` | This write-up. Upstream's README is kept as [`docs/UPSTREAM-README.md`](docs/UPSTREAM-README.md). |
+
+---
+
+## Using it with the remote
+
+| Key | On Home | Elsewhere |
+| --- | --- | --- |
+| ◀ ▶ ▲ ▼ | Move between tiles (▲ from the apps row reaches the ⚙ gear) | Move |
+| OK | Open the app or switch to the input | Select |
+| Back | Nothing (Home is the root) | Go back one level |
+| **▶ Play / ⏯ Play-Pause** | **Open Samsung Home** (Smart Hub and TV settings) | Same |
+| 🔴 Red | All apps | Back to Home (from All apps) |
+| 🟢 Green | Next wallpaper | – |
+| 🟡 Yellow | Hidden runner game | In All apps: show system apps too |
+| 🔵 Blue | Lab (developer tests and log) | Back to Home (from Lab) |
+| ◀▶◀▶◀▶ | Hidden runner game | – |
+
+In the browser preview: arrows plus Enter, Esc or Backspace for Back, `R` `G` `Y` `B` for the colour
+keys, and `P` for Play.
+
+---
+
+## How the code is organised
+
+It's plain JavaScript (ES5 style, no framework and no bundler), because the TV's web engine
+is old and slow. Each file is an IIFE that publishes one global (`window.Home`, `window.UI`, …).
+[`src/index.html`](src/index.html) loads them in order, and [`src/js/boot.js`](src/js/boot.js)
+starts them:
+
+```
+UI.init()          ui.js         key handling, focus, screens, toast, pop-up menu
+Settings.init()    settings.js   every Settings screen
+Screensaver.init() screensaver.js
+Weather.start()    weather.js    (disabled while latitude/longitude are null)
+Home.init()        home.js       Home, All apps, Lab; loads the app list; HDMI tiles
+```
+
+How data moves through it:
+
+```
+config.js  ──defaults──▶  prefs.js (localStorage on the TV)  ──▶  home.js / settings.js
+                                                                    │
+tizen.application.getAppsInfo() ──▶ apps.js (filter, match) ───────┤
+tizen.systeminfo / tizen.tvwindow ──▶ inputs.js (HDMI) ─────────────┤
+brands.js ──▶ tile colours / logos ─────────────────────────────────┘
+```
+
+| File | Role |
+| --- | --- |
+| `config.js` | **Edit this.** Default apps, inputs, locale, weather, sound. |
+| `config.local.js` | Gitignored per-TV overrides (coordinates, dev log URL). See `config.local.example.js`. |
+| `brands.js` | Tile background/foreground colour and logo for each brand. |
+| `prefs.js` | Settings saved on the TV. These win over `config.js` once you change something on the TV. |
+| `apps.js` | Lists installed apps, filters out Samsung's system services, matches config entries, launches. |
+| `inputs.js` | Lists HDMI ports and switches source (three methods: see `inputMethod`). |
+| `home.js` | Home, All apps and Lab screens; app-list cache; colour/Play key shortcuts. |
+| `settings.js` | All Settings pages, the Home-apps editor, the console editor, the rename keyboard. |
+| `ui.js` | View registry, remote focus grid, key dispatch, hint bar, toast, menu. |
+| `wallpaper.js` / `wallpapers.js` | Background photo and rotation / generated photo list. |
+| `screensaver.js` / `weather.js` | Screen saver with clock, photos and optional weather. |
+| `appearance.js` | Clock format, date language, font, name visibility. |
+| `sound.js` | Optional synthesised navigation click. |
+| `devlog.js` | Log shown in Lab, and optionally sent to `npm run devlog` on the PC. |
+| `render-probe.js` / `platform-probe.js` | Lab-only performance and API probes. |
+| `runner-game.js` | Easter egg. |
+| `tizen-mock.js` | Fake Tizen APIs for the browser preview. Inert on the TV. |
+
+---
+
+## Build
+
+Requirements: **Node.js 20+**, plus either `zip` or Python 3 (Git Bash on Windows uses Python).
 
 ```sh
-npm run preview      # browser preview on :8080
-npm run build        # -> dist/arn0-launcher.wgt
-npm run devlog       # receive Lab logs from the TV into logs/tv.jsonl
-node scripts/prepare-wallpapers.mjs <folder>   # regenerate wallpapers from your photos
+npm run preview   # browser preview at http://localhost:8080 (no TV needed)
+npm run build     # → dist/arn0-launcher.wgt (unsigned; Apps2Samsung signs it on install)
+npm run devlog    # receive Lab logs from the TV into logs/tv.jsonl
 ```
 
-### Remote
+`#all`, `#lab` or `#settings` at the end of the preview URL opens that screen directly.
 
-| Key | Action |
-| --- | --- |
-| Arrows | move (Up from the apps row reaches the gear = Settings) |
-| OK | open app / switch input / select |
-| Back | one level back (does nothing on Home) |
+A prebuilt package is attached to this repo's [Releases](../../releases) page.
 
-Hidden shortcuts: Red = All apps, Green = next wallpaper, Yellow (in All apps) = show system apps,
-Blue = Lab. On Home, Left and Right alternating three times (◀ ▶ ◀ ▶ ◀ ▶) starts the hidden game;
-OK / Up jumps, Down ducks, Back returns Home. The code alternates rather than repeating a key
-because a held remote key auto-repeats, which would both break a run-based code and fire it by
-accident while sweeping along a row.
+---
 
-### Layout
+## Install or update on the TV
 
-```
-src/                  everything that goes into the .wgt
-  config.xml          Tizen manifest (app id, privileges)
-  css/style.css       1920x1080 stage; performance rules measured, not assumed (see its header)
-  fonts/              Manrope, Inter, Outfit, DM Sans (OFL), bundled so nothing loads from the network
-  img/marks/          brand marks (Simple Icons CC0, Custom Brand Icons MIT; see SOURCES.md)
-  img/tiles/          marks recoloured per brand (generated at build)
-  img/wallpapers/     1920x1080 wallpapers with the readability scrim baked in (generated)
-  js/config.js        your apps, consoles, HDMI method, locale, theme
-  js/config.local.js  gitignored per-TV overrides, merged over config.js (not in the repo)
-  js/brands.js        tile colours and marks per brand
-  js/apps.js          list / filter / launch via tizen.application
-  js/inputs.js        HDMI via tizen.systeminfo + tizen.tvwindow
-  js/wallpaper.js     wallpaper display and rotation
-  js/screensaver.js   idle screen saver: photos, slow zoom, clock
-  js/appearance.js    clock, date and font settings
-  js/weather.js       Open-Meteo reading for the screen saver corner
-  js/prefs.js         settings saved on the TV
-  js/ui.js            screens, focus, keys, toast, pop-up menu
-  js/home.js          Home, All apps, Lab
-  js/settings.js      Settings pages
-  js/devlog.js        development log (Lab screen, optional upload to your computer)
-  js/render-probe.js  measures what this TV can actually render (Lab screen only)
-  js/platform-probe.js  reports which tizen.* / webapis.* APIs the TV exposes (Lab screen only)
-  js/boot.js          start-up
-  js/tizen-mock.js    fake Tizen APIs for the browser preview (inactive on the TV)
-scripts/              build.sh, serve.mjs, devlog-server.mjs, fetch-assets.mjs, make-icon.mjs
-native/               guarded Home/startup helpers — read docs/setup-tv.md first
-docs/                 setup guide
+1. The PC must be on the same network as the TV (AT&T `192.168.1.x`, **not** the Nest Wifi).
+2. Developer Mode must be on with this PC's IP (see [Phase 1](#phase-1-developer-mode-and-first-install)).
+   If the PC's IP has changed, update it in the TV's Developer Mode screen and restart the TV.
+3. Build, then install over the top of the existing copy:
+
+   ```powershell
+   cd "C:\Users\raine\TV Update\arn0-tv"
+   npm run build
+   ..\tools\Apps2Samsung-cli\apps2samsung-cli.exe install dist\arn0-launcher.wgt --tv 192.168.1.68
+   ```
+
+Updating keeps your on-TV settings (they're in localStorage). Uninstalling the app clears them.
+
+---
+
+## Configuration
+
+### Apps on Home
+
+Edit `apps` in [`src/js/config.js`](src/js/config.js). Each entry is either:
+
+```js
+{ match: 'netflix', label: 'Netflix', brand: 'netflix' }        // regex on app id or name
+{ id: 'org.tizen.netflix-app', label: 'Netflix', brand: 'netflix' } // exact id (most reliable)
 ```
 
-### Settings
-
-Saved on the TV in `localStorage`. They survive restarts and in-place updates, not an uninstall.
-
-- **Background** — Off (plain gradient), one photo, or rotate: on each Home, 30 s, 5 min, 15 min,
-  1 hour, daily.
-- **Apps on Home** — OK on an app opens Move / Remove; OK on the right-hand slot adds one.
-- **Consoles** — per console: rename (on-screen keyboard), HDMI port, logo, how it opens, hide,
-  reorder, remove; plus add a console.
-- **Appearance** — 24/12-hour clock, date shown/hidden, date language (English, Español, Français),
-  font, app names (always / when selected / never).
-- **Navigation sound** — turn arrow-key sounds on or off, choose Soft, Warm or Bright, and preview
-  the selected tone.
-- **Screen saver** — on or off, start after 3/5/10/15 min idle on Home, photo change every
-  60/75/90 s while Background is on Rotate, go dark after 30 min / 1 hour / 2 hours / never, and
-  show it now.
-- **Samsung Home** — opens `com.samsung.tv.csfs`, from which TV settings are one press away.
-  Opening `com.samsung.tv.coba.setting` directly does not work on this TV. Keep this entry: it is
-  the route back if you have redirected the Home button.
-- **Advanced** — refresh the app list, export settings to the log, reset everything, Lab.
-
-### Wallpapers
-
-Photos are cropped to 1920x1080 and darkened (top-left for the clock, bottom for the tiles) at
-build time, so the TV only ever draws one plain JPEG on its own layer. Drop photos in a folder and
-run `node scripts/prepare-wallpapers.mjs <folder>`; friendly names and crop positions for known
-files live in that script. Current photos are from Unsplash; credits appear when you switch with
-Green.
-
-### Screen saver
-
-After a few minutes with no input on Home it shows the wallpapers full screen with the clock, the
-weather and the photo's name in the corners. Any button closes it, and that press does nothing else. It never
-appears over a console input, another screen or the hidden game.
-
-The weather is off until you put coordinates in `config.local.js` (see **What you can change**). It comes from
-[Open-Meteo](https://open-meteo.com/), which needs no API key, and there is deliberately no
-Settings page for it: the TV does not move, and coordinates are not something you type with a
-remote. The reading is cached in `localStorage` so the screen saver opens with real numbers even
-after the TV has been off, it refreshes at most once an hour and only when something is about to
-show it, and anything older than three hours is treated as no reading at all — an unattended
-screen should go blank rather than state yesterday's temperature as if it were now.
-
-Everything in it moves, because a clock parked in one corner for an hour is a burn-in risk: the
-photo drifts across 320 px while it is up and the next one drifts back the other way, the corner
-text shifts a few pixels on each photo change, the clock moves to another corner every two and a
-half minutes, and the whole thing fades to black once the configured hour is up. Photos follow the
-**Background** setting — Rotate cycles them, a single photo is held, Off leaves just the clock —
-using the screen saver's own position, so it never rewrites the wallpaper Home comes back to.
-
-Black, rather than off, because a web app cannot turn this panel off: `tizen.power` and
-`webapis.power` are both absent on the reference TV, which **Platform probe: what APIs this TV
-exposes** in the Lab screen will confirm on yours. No privilege changes that — an absent API gives
-you nothing to be refused by. A real power-off is the TV's own Eco Solution ▸ Auto Power Off,
-driven by the same absence of remote input that started the screen saver.
-
-Only `transform` and `opacity` animate, which the compositor can run without repainting. Not every
-composited property is equal here, though, and only running it on the TV showed it: the first
-version used a slow `scale()`, which this engine re-rasterises in visible steps rather than
-compositing, and it stepped badly enough to be unpleasant to watch. A `translate()` of the same
-layer is smooth, so the photo pans instead of zooming and the layer is laid out 320×180 larger
-than the screen to give it room. The Lab probe cannot settle this one: it times a JavaScript
-repaint loop, and a transition that runs off the main thread reads as a clean 60 fps there whether
-or not the panel keeps up. Judge it by eye on the TV.
-
-### Apps
-
-`getAppsInfo` reports many internal services as visible, so **All apps** keeps only ids that look
-like store apps (`AbCdEfGhIj.Name`, or numeric) plus a short list of preinstalled consumer apps, and
-drops names containing service/worker/agent/e-manual. Yellow shows everything when you need to find
-something. The id of the focused app is shown bottom-left — pin it in `config.js` as `{ id: '...' }`,
-which is more reliable than a name match.
+To find exact ids, press **Blue** (Lab) → *Send installed app list to log*. The order in the list is
+the order on Home. You can also reorder, add and remove apps from the TV in **Settings → Apps on Home**,
+and those changes are saved on the TV and take priority over `config.js`.
 
 ### HDMI inputs
 
-`tizen.systeminfo.getPropertyValue('VIDEOSOURCE')` lists the ports and `tizen.tvwindow.setSource()`
-changes the source (privilege `tv.window`, public). What happens next is undocumented, so
-`inputMethod` has three options:
+```js
+inputs: [
+    { hdmi: 1, label: 'PC', brand: 'pc' },
+    { hdmi: 2, label: 'PlayStation 4', brand: 'playstation' }
+]
+```
 
-- `switch+viewer` (default) — set the source, then open Samsung's TV viewer, so the console is shown
-  by the TV itself with Game Mode and friends as usual.
-- `switch` — only set the source.
-- `inapp` — show the input full screen inside the launcher; Back returns to the dashboard. Probably
-  no automatic Game Mode or VRR this way.
+To find the right port, turn the device on, then **Blue** (Lab) → *Read inputs*. These can also be
+edited on the TV in **Settings → Consoles**.
 
-The **Lab** screen (Blue) tries each method per console and reports what happened. The dot on each
-tile is green when the TV reports that port as connected.
+`inputMethod` controls what selecting an input does:
 
-To collect Lab results on your computer, point `devLogUrl` in `config.js` at it and run
-`npm run devlog`; entries land in `logs/tv.jsonl`. Set it to `null` to disable, which is the
-sensible setting for a TV you are not actively debugging.
+- `switch+viewer` (default): change source, then open Samsung's viewer, so Game Mode etc. behave
+  normally.
+- `switch`: change source only.
+- `inapp`: show the input full screen inside the launcher, and Back returns.
 
-### What the hardware can afford
+### Tile look
 
-The TV will not tell you what it can render, so the Lab screen measures it. **Render probe:
-everything** walks a focus ring along eight tiles — the same work as moving along the apps row —
-and counts frames against the wall clock for each of four stages. Results land in the log.
+Add or change entries in [`src/js/brands.js`](src/js/brands.js). Use `mark` for an SVG in
+`src/img/marks/`, or `text` (+ optional `size`) for a typographic logo.
 
-On the reference Q70B (Chromium 85, 4 cores, 2 GB), baseline is 59.5 fps / 16.8 ms with no
-dropped frames, and:
+### Per-TV secrets / location
 
-| | Measured | |
-| --- | --- | --- |
-| Blurred `box-shadow`, 8 tiles at `0 40px 100px` | 59.5 fps, 0 dropped | free |
-| 3 live radial-gradient layers, 1100 px | 4.6 fps, 178.7 ms, 88/90 dropped | never at runtime |
+Copy `src/js/config.local.example.js` to `src/js/config.local.js` (gitignored) for weather
+coordinates or a dev-log URL.
 
-So soft shadows are fine and background glows are not. Bake a gradient into the wallpaper at
-build time instead — `scripts/prepare-wallpapers.mjs` already does exactly this for the
-readability scrim.
+---
 
-The probe also reports the engine and its CSS support, which saves guessing: Chromium 85 has
-grid, gap, sticky and `clamp()`, but no `inset`, `aspect-ratio`, `overflow: clip`, individual
-transform properties, `color-mix()`, container queries or `:has()`.
+## Maintenance and to-do
 
-Re-run it on your own TV before trusting any of these numbers; that is the whole point of it.
-Two of my own early runs produced nonsense — `requestAnimationFrame` on this engine stops
-tracking vsync and fires callbacks in batches, which reads as absurdly high frame rates, so the
-probe now measures against `Date.now()` and flags any sample faster than the panel refreshes.
+- **Certificate expires 2027-10-25.** The Samsung public developer certificate (made by
+  Apps2Samsung) is valid for a year. Before then, renew it in Apps2Samsung and reinstall the
+  launcher, or it will stop launching.
+- **Developer Mode** can be switched off by a firmware update or factory reset. If installs start
+  failing, re-enable it (Phase 1, step 2).
+- **To do: confirm the PS4's HDMI port** with Lab → *Read inputs*, then uncomment its line in `config.js`.
+- **To do: replace `match` with exact app ids** using Lab → *Send installed app list to log*.
+- **To do: test HDMI switching on the TV.** The PC tile and the dot show up in the preview, but
+  switching through `tizen.tvwindow` hasn't been verified on this firmware yet. If it fails, try
+  each method from the Lab screen.
+- Clock defaults to 24-hour; switch to 12-hour in **Settings → Appearance** if preferred.
 
-### Privileges
+---
 
-| Privilege | Used for |
+## Troubleshooting
+
+| Symptom | Fix |
 | --- | --- |
-| `application.launch` | opening apps and the TV viewer |
-| `application.info` | listing apps |
-| `tv.inputdevice` | colour keys (arrows, OK and Back need no registration) |
-| `tv.window` | HDMI source switching and display |
-| `internet` + `<access origin="*">` | the Open-Meteo request and the development log |
+| Apps2Samsung finds 0 devices | The PC is on the Nest Wifi (`192.168.86.x`). Join the AT&T network. Check `http://192.168.1.68:8001/api/v2/` opens. |
+| Install refused / "not in developer mode" | Developer Mode is off, or set to a different PC IP. Fix it and restart the TV. |
+| An app is missing from Home | Its name didn't match. Check the exact name/id in Lab and update `config.js`, or add it in Settings → Apps on Home. |
+| Wrong YouTube app on the YouTube tile | Pin it by `id` instead of `match`. |
+| Play key does nothing | The Lab log shows "Play keys unavailable" if registration failed. Samsung Home is also reachable from Settings → Samsung Home. |
+| Launcher doesn't come back after power-off | Turn on *Autorun Last App* and leave the launcher open before switching off. |
+| Want to undo everything | Uninstall *Arn0 Launcher* from the TV's app list, then turn Developer Mode off. Nothing else was changed. |
 
-## Contribute
+---
 
-Forks and experiments are welcome. If you report a problem, include your model, firmware and what
-you actually observed, and strip local addresses and device identifiers first.
+## Tools not in this repo
 
-What I would find most useful: results from other models and Tizen versions, and especially from a
-TV where `db/menu/smart_hub/ontvsetting/auto_start` starts at `0`.
+The `tools/` folder next to this repo on my PC holds third-party binaries. They aren't committed,
+because they're large (the GUI exe alone is 146 MB, above GitHub's 100 MB file limit), they
+belong to someone else, and they bundle signing certificates and passwords that shouldn't be
+republished.
 
-## Licence and credits
+| Tool | Version | Used for | Get it |
+| --- | --- | --- | --- |
+| Apps2Samsung (GUI) | 2.8.3 win-x64 | Creating the Samsung developer certificate; first install | [Apps2Samsung releases](https://github.com/Apps2Samsung/Apps2Samsung/releases) |
+| apps2samsung-cli | 3.0.0-beta win-x64 | Command-line installs/updates | Same project |
 
-MIT for the original code and documentation — see [LICENSE](LICENSE). Bundled fonts (OFL), Unsplash
-photos and brand marks keep their own terms. Weather data by [Open-Meteo](https://open-meteo.com/),
-used under its non-commercial licence. Brand names and logos belong to their owners.
+Your own Samsung certificate lives in Apps2Samsung's user data, not in this repo. `.gitignore`
+blocks `*.p12`, `*.pem`, `*.cer` and similar, so it can't be committed by accident.
 
-This project is independent and is not affiliated with Samsung or any streaming service.
+---
 
-The Home-button approach follows [CleanFrame](https://github.com/nthnclrk/CleanFrame), which
-documented the method on a 2024 Frame. The guarded helpers here are an adaptation tested on the
-Q70B and exact firmware listed above; that does not establish compatibility with other devices.
+## Repository layout
+
+```
+├── README.md                 this write-up
+├── LICENSE                   MIT (upstream)
+├── package.json              npm scripts: preview, build, devlog, icon, fetch-assets
+├── docs/
+│   ├── UPSTREAM-README.md    original arn0-tv README (full feature reference)
+│   ├── setup-tv.md           upstream TV setup + Home-button guide (Phase 3, not used here)
+│   ├── preview.png           upstream screenshot
+│   └── screenshots/          previews of this customised version
+├── native/                   upstream Home-button helpers (C#, guarded to the Q70B; unused)
+├── scripts/                  build, preview server, devlog server, asset/wallpaper tools
+└── src/                      everything that goes into the .wgt
+    ├── config.xml            Tizen manifest: app id, privileges, version
+    ├── index.html            all screens' markup
+    ├── css/style.css
+    ├── fonts/                Manrope, Inter, Outfit, DM Sans (OFL)
+    ├── img/                  brand marks, pre-coloured tiles, wallpapers
+    └── js/                   the launcher (see "How the code is organised")
+```
+
+---
+
+## Credits and licence
+
+- Launcher by **Arnaud Etienne**: [NelsonEU/arn0-tv](https://github.com/NelsonEU/arn0-tv), MIT licence
+  (see [LICENSE](LICENSE)). This fork keeps the full upstream history.
+- Fonts under the SIL Open Font Licence; wallpapers under the Unsplash Licence; weather from
+  [Open-Meteo](https://open-meteo.com/). Brand names and logos belong to their owners.
+- Installed with [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung).
+- Not affiliated with Samsung or any streaming service. Use at your own risk.
