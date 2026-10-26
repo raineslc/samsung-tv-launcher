@@ -25,10 +25,12 @@
         ESC: 27, BACKSPACE: 8, R: 82, G: 71, Y: 89, B: 66, P: 80
     };
 
+    // Registered screens, per-screen focus position { r, c, last }, and the screen now shown.
     var views = {};
     var focus = {};
     var current = null;
 
+    // Small DOM helpers shared by every module.
     function $(id) { return document.getElementById(id); }
 
     function el(tag, className, text) {
@@ -42,12 +44,14 @@
 
     function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
+    // Splits a flat list into rows of n (e.g. the 5-column All apps grid).
     function chunk(items, n) {
         var rows = [];
         for (var i = 0; i < items.length; i += n) rows.push(items.slice(i, i + n));
         return rows;
     }
 
+    // Adds a screen. See the header for what `def` may contain.
     function register(name, def) {
         views[name] = def;
         focus[name] = { r: def.startRow || 0, c: 0, last: {} };
@@ -96,17 +100,20 @@
         refresh();
     }
 
+    // Back key: the view may handle it itself; otherwise return to the view it was opened from.
     function back() {
         var def = views[current];
         if (def.onBack && def.onBack()) return;
         if (def.from) show(def.from, { back: true });
     }
 
+    // Current view's focus grid with empty rows removed (e.g. no inputs configured).
     function rows() {
         var def = views[current];
         return def.rows ? def.rows().filter(function (r) { return r.length; }) : [];
     }
 
+    // Element at the remembered focus position, clamped in case the rows shrank.
     function focusedEl() {
         var r = rows();
         if (!r.length) return null;
@@ -116,6 +123,7 @@
         return r[f.r][f.c];
     }
 
+    // Moves the .focused class (the visible ring) and scrolls the element into view.
     function setFocus(target) {
         var prev = document.querySelectorAll('.focused');
         for (var i = 0; i < prev.length; i++) prev[i].classList.remove('focused');
@@ -126,6 +134,7 @@
         if (def.onFocus) def.onFocus(target);
     }
 
+    // Re-applies focus after a re-render; views with custom navigation supply focusEl().
     function refresh() {
         var def = views[current];
         setFocus(def.focusEl ? def.focusEl() : focusedEl());
@@ -144,11 +153,13 @@
         refresh();
     }
 
+    // Horizontal centre of an element, used to pick the nearest tile when moving between rows.
     function centerX(e) {
         var b = e.getBoundingClientRect();
         return b.left + b.width / 2;
     }
 
+    // Arrow-key navigation: dr = row delta, dc = column delta.
     function move(dr, dc) {
         var r = rows();
         if (!r.length) return;
@@ -200,6 +211,7 @@
         track.style.transform = horizontal ? 'translateX(' + (-pos) + 'px)' : 'translateY(' + (-pos) + 'px)';
     }
 
+    // Scrolls a track back to its start (e.g. reopening All apps).
     function resetScroll(track) {
         track._pos = 0;
         track.style.transform = '';
@@ -208,6 +220,8 @@
     var keyHook = null;   // e.g. HDMI shown inside the launcher swallows keys
     var colourKey = null; // global shortcuts
 
+    // Single keydown handler for the whole app.
+    // Order: global key hook -> view's onKey -> arrows/OK/Back -> colour/media shortcuts.
     function onKey(e) {
         var k = e.keyCode;
         if (keyHook && keyHook(k)) {
@@ -238,6 +252,7 @@
     }
 
     var toastTimer = null;
+    // Brief message at the bottom of the screen, hidden after 3.5 s.
     function toast(msg) {
         $('toast').textContent = msg;
         $('toast').classList.add('visible');
@@ -259,6 +274,7 @@
         show('menu');
     }
 
+    // Registers the shared pop-up menu and starts listening for keys. Called first by boot.js.
     function init() {
         register('menu', {
             el: $('menu'),

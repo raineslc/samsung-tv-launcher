@@ -31,6 +31,7 @@
     var obstacleCount = 0;
     var imageError = false;
 
+    // Canvas text helper.
     function text(value, x, y, size, color, align, weight) {
         ctx.fillStyle = color || '#fff';
         ctx.font = (weight || 500) + ' ' + size + 'px Manrope, Arial, sans-serif';
@@ -38,6 +39,7 @@
         ctx.fillText(value, x, y);
     }
 
+    // Fits a sprite inside maxW x maxH keeping its aspect ratio, standing on `bottom`.
     function spriteRect(img, x, bottom, maxW, maxH) {
         var scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight);
         var w = img.naturalWidth * scale;
@@ -52,6 +54,7 @@
         return r;
     }
 
+    // Player hit box; shorter while ducking.
     function playerRect(bottom) {
         var r = spriteRect(runner, 235, bottom, 230, 310);
         if (crouching) {
@@ -95,6 +98,7 @@
         return sky;
     }
 
+    // Paints one frame: sky, ground, obstacles, player and score/intro text.
     function draw() {
         ctx.fillStyle = skyFill();
         ctx.fillRect(0, 0, 1920, 1080);
@@ -139,6 +143,7 @@
         }
     }
 
+    // New run: reset score, speed and obstacles, then start the animation loop.
     function start() {
         if (imageError) {
             state = 'error';
@@ -160,11 +165,13 @@
         raf = requestAnimationFrame(frame);
     }
 
+    // OK / Up: jump if on the ground.
     function jump() {
         if (state !== 'play') { start(); return; }
         if (jumpY === 0 && !crouching) jumpV = 910;
     }
 
+    // Down: duck for 650 ms.
     function duck() {
         if (state !== 'play' || jumpY > 0) return;
         crouching = true;
@@ -172,6 +179,7 @@
         crouchTimer = setTimeout(function () { crouching = false; }, 650);
     }
 
+    // Game loop (requestAnimationFrame): physics, spawning, collisions, then draw().
     function frame(now) {
         if (state !== 'play') return;
         var dt = Math.min((now - (last || now)) / 1000, 0.04);
@@ -220,6 +228,7 @@
     function show() { state = 'intro'; draw(); }
     function hide() { cancelAnimationFrame(raf); stopMusic(); }
 
+    // Pause and silence the game when the launcher goes to the background.
     document.addEventListener('visibilitychange', function () {
         if (document.hidden) {
             stopMusic();

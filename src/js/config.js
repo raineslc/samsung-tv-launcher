@@ -13,6 +13,9 @@
  */
 window.LAUNCHER_CONFIG = {
     // Matched by name until the real ids are read from "All apps" on the TV (QN65Q80D, Tizen 8).
+    // Order here is the order on Home. Each app can only be claimed once, and '^youtube$' is
+    // anchored so it does not grab YouTube TV or YouTube Kids. To pin an exact app instead, replace
+    // `match` with `id` (Lab > "Send installed app list to log" lists every id).
     apps: [
         { match: '^youtube$|cobalt-yt', label: 'YouTube', brand: 'youtube' },
         { match: 'youtube ?tv', label: 'YouTube TV', brand: 'youtubetv' },
@@ -25,6 +28,8 @@ window.LAUNCHER_CONFIG = {
         { match: 'espn', label: 'ESPN', brand: 'espn' }
     ],
 
+    // HDMI devices on this TV. Ports can also be changed on the TV in Settings > Consoles.
+    // Lab > "Read inputs" shows which ports currently have a signal.
     inputs: [
         { hdmi: 1, label: 'PC', brand: 'pc' }
         // { hdmi: ?, label: 'PlayStation 4', brand: 'playstation' }   port not confirmed yet
@@ -36,7 +41,7 @@ window.LAUNCHER_CONFIG = {
     //   'inapp'          show the input full screen inside the launcher (Back returns)
     inputMethod: 'switch+viewer',
 
-    locale: 'en-US',
+    locale: 'en-US',            // date language/format on Home (US TV)
 
     theme: {
         // Starting wallpaper (key from js/wallpapers.js), or null for none (plain gradient).

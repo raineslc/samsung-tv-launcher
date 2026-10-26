@@ -5,18 +5,22 @@
     // Samsung's `show` flag still lets many services through (e.g. ep-dataservice-app).
     // Store apps have ids like "AbCdEfGhIj.Name"; a few consumer apps ship preinstalled with system ids.
     var STORE_ID = /^[A-Za-z0-9]{10}\.[A-Za-z0-9_-]+$/;
-    var NUMERIC_ID = /^\d{9,13}$/;
+    var NUMERIC_ID = /^\d{9,13}$/;             // older store apps (e.g. Hulu, ESPN) use numeric ids
+    // Consumer apps that ship with system-style ids and would otherwise fail STORE_ID.
     var PRELOADED = [
         'org.tizen.netflix-app', 'org.tizen.primevideo', 'org.tizen.apple.apple-music',
         'org.tizen.browser', 'com.samsung.tv.aria-video'
     ];
+    // Store-style ids that are really Samsung system screens; never shown in All apps.
     var INTERNAL = [
         'adplatform.ADPlayer', 'WykOS4t4F0.cmsWebApp', '25emanual3.emanual',
         'ZODRT12q2l.WebAccountExtension', 'ByJlgt0XeD.CastSettingsApp', 'tv6pbVMQFF.PrivacyChoices',
         '2022ePop01.SmartTV', 'w2VwCK465D.OTApp', 'J9fZJDMi1v.SecurityCenter'
     ];
+    // Words in a name/id that mark background helpers rather than apps a person would open.
     var NOISE = /service|worker|preview|promotion|plugin|launcher|test|sdk|^ep[ -]|factory|daemon|dummy|agent|e-?manual|account|adplayer|privacy|security/i;
 
+    // Tizen callbacks sometimes never fire; this turns a hang into a readable error after `ms`.
     function withTimeout(promise, ms, what) {
         return new Promise(function (resolve, reject) {
             var timer = setTimeout(function () { reject(new Error(what + ': the TV did not respond')); }, ms);
@@ -25,6 +29,7 @@
         });
     }
 
+    // The launcher's own id (Arn0Lnchr0.Launcher), so it never lists itself.
     function selfAppId() {
         try {
             return tizen.application.getCurrentApplication().appInfo.id;
@@ -33,18 +38,21 @@
         }
     }
 
+    // Every installed application (~450 on a Samsung TV, most of them system services).
     function getInstalledApps() {
         return withTimeout(new Promise(function (resolve, reject) {
             tizen.application.getAppsInfo(resolve, reject);
         }), 8000, 'App list');
     }
 
+    // Opens an app by id; the launcher moves to the background while it runs.
     function launch(appId) {
         return withTimeout(new Promise(function (resolve, reject) {
             tizen.application.launch(appId, resolve, reject);
         }), 8000, 'Launch');
     }
 
+    // True for apps a person would want in All apps (Netflix), false for system plumbing.
     function isConsumer(app) {
         if (PRELOADED.indexOf(app.id) >= 0) return true;
         if (!app.show || INTERNAL.indexOf(app.id) >= 0) return false;
@@ -64,6 +72,8 @@
         });
     }
 
+    // Resolves config/Prefs entries ({ id } or { match }) to installed apps, in entry order.
+    // `used` stops two entries claiming the same app (e.g. "youtube" grabbing YouTube TV).
     function curated(apps, cfg) {
         var used = {};
         var out = [];
@@ -84,6 +94,7 @@
         return out;
     }
 
+    // All apps grid contents, A-Z. showEverything relaxes the filter to Samsung's own `show` flag.
     function allSorted(apps, showEverything) {
         return apps
             .filter(function (a) { return showEverything ? a.show : isConsumer(a); })
@@ -96,6 +107,7 @@
         return name.split(/\s+[-:|–]\s+/)[0].trim() || name;
     }
 
+    // The tile model used by home.js: config label/brand win over what the TV reports.
     function toItem(app, entry) {
         return {
             kind: 'app',
@@ -106,6 +118,7 @@
         };
     }
 
+    // Plain-object dump of an app for the Lab log (Tizen objects do not JSON-serialise cleanly).
     function describe(app) {
         return {
             id: app.id, name: app.name, show: app.show, packageId: app.packageId,

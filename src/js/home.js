@@ -2,9 +2,9 @@
 (function () {
     'use strict';
 
-    var CACHE_KEY = 'arn0.apps.v1';
-    var REFRESH_AFTER_MS = 5 * 60 * 1000;
-    var GRID_COLS = 5;
+    var CACHE_KEY = 'arn0.apps.v1';            // localStorage key for the last app list seen
+    var REFRESH_AFTER_MS = 5 * 60 * 1000;      // re-read the app list at most every 5 minutes
+    var GRID_COLS = 5;                         // columns in the "All apps" grid
 
     var cfg = window.LAUNCHER_CONFIG;
     var log = DevLog.log;
@@ -37,11 +37,13 @@
         return m;
     }
 
+    // Fallback tile text for apps with no brand: first letter of the first two words ("Apple TV" -> "AT").
     function initials(label) {
         var words = label.replace(/[^\w\s+]/g, ' ').trim().split(/\s+/);
         return (words[0] ? words[0][0] : '?') + (words[1] ? words[1][0] : '');
     }
 
+    // Stable colour per app name, so an unbranded tile keeps the same colour across restarts.
     function hue(text) {
         var h = 0;
         for (var i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) % 360;
@@ -59,10 +61,12 @@
         img.src = path.charAt(0) === '/' ? 'file://' + path : path;
     }
 
+    // The coloured square of a tile: brand logo, brand wordmark, or initials on a hashed colour.
     function tileFace(item) {
         var tile = el('div', 'tile');
         if (item.brand) {
             tile.style.background = item.brand.bg;
+            // Text wordmark (YouTube TV, Paramount+, Hulu, ESPN have no SVG mark in img/marks/).
             if (item.brand.text) {
                 var word = el('div', 'wordmark', item.brand.text);
                 word.style.color = item.brand.fg;
@@ -80,6 +84,7 @@
         return tile;
     }
 
+    // Full Home/All-apps tile: face + label. `_item` is what UI hands back to activate() on OK.
     function appTile(item) {
         var wrap = el('div', 'app');
         wrap.appendChild(tileFace(item));
@@ -95,6 +100,7 @@
         return wrap;
     }
 
+    // Last tile on the Home row: opens the All apps grid.
     function allAppsTile() {
         var wrap = el('div', 'app');
         var tile = el('div', 'tile all-tile');
@@ -107,6 +113,7 @@
         return wrap;
     }
 
+    // Wide tile for an HDMI device (second Home row). The dot lights when the port reports a signal.
     function inputTile(input) {
         var brand = findBrand(input.brand || '') || { bg: '#2a2f3a', fg: '#fff', mark: null };
         var wrap = el('div', 'input');
@@ -140,6 +147,7 @@
         return Prefs.get().inputs || cfg.inputs || [];
     }
 
+    // Saves an edited console list (from Settings) and redraws Home.
     function setInputs(list) {
         Prefs.get().inputs = list;
         Prefs.save();
@@ -151,10 +159,12 @@
         return Prefs.get().home || cfg.apps || [];
     }
 
+    // Resolves the Home entries against what is actually installed; entries with no match drop out.
     function homeItems() {
         return Apps.curated(state.apps, { apps: homeEntries() });
     }
 
+    // Saves the Home row as exact app ids, so a later rename on the TV does not break the match.
     function setHomeItems(items) {
         Prefs.get().home = items.map(function (i) {
             var entry = { id: i.id, label: i.label };
@@ -165,10 +175,12 @@
         renderHome();
     }
 
+    // Rebuilds both Home rows: apps (plus All apps) and HDMI inputs.
     function renderHome() {
         var row = $('apps-row');
         row.innerHTML = '';
         var items = homeItems();
+        // Nothing in the config matched (e.g. first boot before the app list loads): show any 8 apps.
         if (!items.length) items = Apps.allSorted(state.apps, false).slice(0, 8);
         items.forEach(function (item) { row.appendChild(appTile(item)); });
         row.appendChild(allAppsTile());
@@ -183,12 +195,14 @@
         if (UI.isVisible('home')) UI.refresh();
     }
 
+    // Lights the "connected" dot on each input tile from the last known HDMI status.
     function applyInputStatus() {
         UI.children($('inputs-row')).forEach(function (tile) {
             tile._dot.classList.toggle('on', state.hdmi[tile._item.hdmi] === true);
         });
     }
 
+    // Asks the TV which HDMI ports have a signal (async), then updates the dots.
     function refreshInputStatus() {
         if (!inputs().length) return;
         Inputs.hdmiStatus().then(function (status) {
@@ -199,6 +213,7 @@
         });
     }
 
+    // All apps grid. Yellow toggles showEverything to include system apps the filter hides.
     function renderAll() {
         var grid = $('all-grid');
         grid.innerHTML = '';
@@ -208,6 +223,7 @@
         $('all-count').textContent = items.length + ' apps';
     }
 
+    // Lab (Blue key): developer test actions plus a live tail of the dev log.
     function renderLab() {
         var actions = [
             { label: 'Send installed app list to log', run: labDumpApps },
@@ -239,6 +255,7 @@
 
     // ---------- Actions
 
+    // Logs start / ok / FAILED around a promise and passes its result (or error) through.
     function runLogged(what, promise) {
         log(what + '…');
         return promise.then(function (v) {
@@ -250,12 +267,14 @@
         });
     }
 
+    // OK on an app tile. Failures show as a toast instead of silently doing nothing.
     function launchApp(item) {
         runLogged('Launch ' + item.id, Apps.launch(item.id)).catch(function (err) {
             UI.toast('Could not open ' + item.label + ': ' + DevLog.errorText(err));
         });
     }
 
+    // OK on an input tile. Method order: the tile's own, then config.inputMethod (see inputs.js).
     function openInput(item, method) {
         method = method || item.method || cfg.inputMethod;
         UI.toast('Switching to ' + item.label + '…');
@@ -267,6 +286,7 @@
         });
     }
 
+    // "Inside the launcher" mode: the HDMI picture is drawn full screen and the UI is hidden by CSS.
     function enterTvMode() {
         state.tvMode = true;
         document.documentElement.classList.add('tv-mode');
@@ -278,6 +298,7 @@
         Inputs.hide().catch(function (err) { log('Hide input failed: ' + DevLog.errorText(err)); });
     }
 
+    // Lab: writes every installed app (id, name, show flag) to the log — how to find real app ids.
     function labDumpApps() {
         runLogged('App list', Apps.getInstalledApps()).then(function (apps) {
             log('apps: ' + apps.length + ' total, ' + apps.filter(function (a) { return a.show; }).length + ' with show=true',
@@ -286,6 +307,7 @@
         }).catch(function () {});
     }
 
+    // Lab: logs connected / disconnected HDMI ports — how to confirm which port the PS4 is on.
     function labReadInputs() {
         runLogged('Inputs', Inputs.sources()).then(function (info) {
             var fmt = function (list) { return (list || []).map(Inputs.describeSource).join(', ') || 'none'; };
@@ -295,6 +317,7 @@
         }).catch(function () {});
     }
 
+    // Green key: next wallpaper, with its title and photo credit as a toast.
     function nextWallpaper() {
         var w = Wallpaper.next();
         if (w) UI.toast(w.title + (w.credit ? ' · ' + w.credit : ''));
@@ -326,6 +349,7 @@
 
     // ---------- Clock, data, lifecycle
 
+    // Top-right clock and date; formats come from Settings > Appearance.
     function updateClock() {
         var d = new Date();
         var t = Appearance.time(d);
@@ -376,6 +400,7 @@
         return true;
     }
 
+    // Takes a new app list; redraws only if something changed (cheap signature over id/name/show).
     function setApps(apps) {
         var sig = apps.map(function (a) { return a.id + '|' + a.name + '|' + a.show; }).join(',');
         if (sig === state.appsSig) return;
@@ -386,6 +411,7 @@
         listeners.forEach(function (fn) { fn(); });
     }
 
+    // Reads the installed apps from the TV (slow), caches them, then hands them to setApps().
     function loadApps() {
         state.lastFetch = Date.now();
         return Apps.getInstalledApps().then(function (apps) {
@@ -400,6 +426,7 @@
         });
     }
 
+    // Tizen only delivers non-navigation keys (colour, media) to apps that register them.
     function registerKeys() {
         try {
             tizen.tvinputdevice.registerKeyBatch(['ColorF0Red', 'ColorF1Green', 'ColorF2Yellow', 'ColorF3Blue']);
@@ -414,10 +441,11 @@
         }
     }
 
+    // Screens owned by this file. Focus rows on Home: [gear], [apps…], [inputs…].
     function registerViews() {
         UI.register('home', {
             el: $('home'),
-            startRow: 1,
+            startRow: 1,                 // start focus on the apps row, not the gear
             hints: [['OK', 'Open'], ['▲', 'Settings'], ['▶', 'Samsung Home']],
             rows: function () {
                 return [[$('gear')], UI.children($('apps-row')), UI.children($('inputs-row'))];
@@ -449,10 +477,13 @@
         });
     }
 
+    // Called once from boot.js: wire keys and screens, draw from cache, then load the real app list.
     function init() {
         registerKeys();
         registerViews();
         UI.setColourKey(colourKey);
+        // Runs before normal navigation: swallows keys while an HDMI input is shown in-app,
+        // and watches for the hidden game code on Home.
         UI.setKeyHook(function (k) {
             if (state.tvMode) {
                 if (k === KEY.BACK || k === KEY.ESC || k === KEY.BACKSPACE) exitTvMode();
@@ -475,6 +506,7 @@
         UI.show('home');
         Wallpaper.start();
 
+        // Fires when the launcher goes to the background (an app opened) or comes back to the front.
         document.addEventListener('visibilitychange', function () {
             if (document.hidden) {
                 if (state.tvMode) exitTvMode();
@@ -491,6 +523,7 @@
         log('Launcher started');
     }
 
+    // Public API, used mainly by settings.js and screensaver.js.
     window.Home = {
         init: init,
         apps: function () { return state.apps; },

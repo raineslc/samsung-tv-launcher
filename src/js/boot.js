@@ -2,6 +2,7 @@
 (function () {
     'use strict';
 
+    // In a desktop browser, scale the fixed 1920x1080 stage to fit the window. No-op on the TV.
     function fitPreview() {
         if (!window.__TIZEN_MOCK__) return;
         document.documentElement.classList.add('preview');
@@ -12,6 +13,7 @@
     fitPreview();
     window.addEventListener('resize', fitPreview);
 
+    // Order matters: UI first (key handling), Settings before Home (Home calls into Settings).
     UI.init();
     Settings.init();
     Screensaver.init();

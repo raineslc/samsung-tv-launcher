@@ -16,13 +16,16 @@
     // fails (UnknownError) and app controls are accepted but show nothing.
     var SAMSUNG_HOME = 'com.samsung.tv.csfs';
 
+    // Logo choices for a console tile; keys are brand keys from js/brands.js. 'None' must stay last.
     var LOGOS = [
         { key: 'playstation', label: 'PlayStation' },
         { key: 'xbox', label: 'Xbox' },
         { key: 'switch', label: 'Nintendo Switch' },
+        { key: 'pc', label: 'PC' },
         { key: '', label: 'None' }
     ];
 
+    // How a console tile switches the TV (see inputs.js for what each one does).
     var METHODS = [
         { key: 'switch+viewer', label: 'TV input', hint: 'Game Mode works' },
         { key: 'inapp', label: 'Inside the launcher', hint: 'Back returns here' }
@@ -59,6 +62,7 @@
         return rows;
     }
 
+    // Registers a simple settings page whose rows come from entries(); returns its render function.
     function registerList(name, entries, hints, twoColumn) {
         var view = $(name);
         var list = view.querySelector('ul');
@@ -83,6 +87,8 @@
         return render;
     }
 
+    // Opens Samsung's Smart Hub. Used by Settings and by the Play / Play-Pause key on Home.
+    // `opening` stops a double press from launching it twice while the first launch is in flight.
     var opening = false;
     function openSamsungHome() {
         if (opening) return;
@@ -96,6 +102,7 @@
 
     // ---------- Overview
 
+    // Right-hand value on the Background row, e.g. "Rotate · 5 min".
     function wallpaperSummary() {
         var p = Prefs.get().wallpaper;
         if (p.mode === 'off') return 'Off';
@@ -104,6 +111,7 @@
         return w ? w.title : 'Photo';
     }
 
+    // The main Settings page (two columns).
     function overviewEntries() {
         var a = Prefs.get().appearance;
         var shown = Home.inputs().filter(function (i) { return !i.hidden; }).length;
@@ -121,12 +129,14 @@
 
     // ---------- Chips (Background, Appearance)
 
+    // A selectable pill; `on` marks the current choice.
     function chip(label, on, item) {
         var c = el('div', 'chip' + (on ? ' on' : ''), label);
         c._item = item;
         return c;
     }
 
+    // Focus grid for a chip page: one row per visible block; photo thumbnails wrap every THUMB_COLS.
     function chipRows(container) {
         var rows = [];
         UI.children(container).forEach(function (block) {
@@ -141,6 +151,7 @@
 
     // ---------- Background
 
+    // Background page: mode (Off / Photo / Rotate), then either the interval or the photo picker.
     function renderBackground() {
         var p = Prefs.get().wallpaper;
 
@@ -171,6 +182,7 @@
         $('bg-photos-block').classList.toggle('hidden', p.mode !== 'photo');
     }
 
+    // Saves the chosen chip, applies the wallpaper immediately and redraws the page.
     function activateBackground(item) {
         var p = Prefs.get().wallpaper;
         if (item.kind === 'mode') {
@@ -190,6 +202,7 @@
 
     // ---------- Appearance
 
+    // Each block is one Prefs.appearance key and its options as [value, label, (font family)].
     function appearanceBlocks() {
         return [
             { title: 'Clock', key: 'clock', options: [['24h', '24-hour'], ['12h', '12-hour']] },
@@ -218,6 +231,7 @@
         });
     }
 
+    // Saves the choice and re-applies fonts/clock right away so the change is visible.
     function activateAppearance(item) {
         Prefs.get().appearance[item.key] = item.value;
         Prefs.save();
@@ -234,6 +248,7 @@
         return p.enabled ? 'On · ' + Sound.presetLabel() : 'Off';
     }
 
+    // Sound page: On/Off, click style, and a preview button.
     function renderSound() {
         var p = Prefs.get().sound;
         var body = $('sound-body');
@@ -265,6 +280,7 @@
         body.appendChild(previewBlock);
     }
 
+    // Plays the sound after each change so the choice can be heard straight away.
     function activateSound(item) {
         var p = Prefs.get().sound;
         if (item.kind === 'enabled') {
@@ -309,6 +325,7 @@
         return blocks;
     }
 
+    // [{ key, label }] -> [[key, label]], the shape the chip renderer expects.
     function optionPairs(list) {
         return list.map(function (o) { return [o.key, o.label]; });
     }
@@ -351,8 +368,11 @@
 
     // ---------- Apps on Home editor (two columns, custom navigation)
 
+    // Editor state. col: 0 = "On Home", 1 = "Add apps"; idx: focused row per column;
+    // moving: index being dragged (-1 = none); snapshot: order before the drag, restored on Back.
     var ed = { col: 0, idx: [0, 0], moving: -1, snapshot: null, items: [], others: [] };
 
+    // Left column = current Home apps; right column = every other launchable app.
     function edLoad() {
         ed.items = Home.homeItems().slice();
         var onHome = {};
@@ -380,6 +400,7 @@
         if (!ed.others.length) ed.col = 0;
     }
 
+    // The element that should carry the focus ring (this page does its own navigation).
     function edFocusEl() {
         var list = [$('ed-home'), $('ed-other')][ed.col];
         if (!list.children.length) return null;
@@ -405,6 +426,7 @@
         UI.refresh();
     }
 
+    // Arrows move focus (or the dragged app while moving); OK opens the menu, drops, or adds.
     function edKey(k) {
         var moving = ed.moving >= 0;
         if (k === KEY.UP || k === KEY.DOWN) {
@@ -484,6 +506,7 @@
         ]);
     }
 
+    // Back while moving cancels the move and restores the previous order.
     function edBack() {
         if (ed.moving < 0) return false;
         ed.items = ed.snapshot;
@@ -504,9 +527,10 @@
     }
 
     function logoOf(input) {
-        return LOGOS.find(function (l) { return l.key === (input.brand || ''); }) || LOGOS[3];
+        return LOGOS.find(function (l) { return l.key === (input.brand || ''); }) || LOGOS[LOGOS.length - 1];
     }
 
+    // One row per HDMI device plus "+ Add a console".
     function consoleEntries() {
         var entries = Home.inputs().map(function (input, i) {
             return {
@@ -520,6 +544,7 @@
         return entries;
     }
 
+    // Edits a copy of the console list, saves it, and redraws Home and this page.
     function editInputs(change) {
         var list = Home.inputs().map(function (i) { return Object.assign({}, i); });
         change(list);
@@ -528,6 +553,7 @@
         UI.refresh();
     }
 
+    // Options pop-up for console i: rename, port, logo, open method, hide, reorder, remove.
     function consoleMenu(i) {
         var c = Home.inputs()[i];
         var count = Home.inputs().length;
@@ -594,6 +620,7 @@
         UI.menu(c.label, options);
     }
 
+    // Adds a console on the first free HDMI port and opens the rename keyboard for it.
     function addConsole() {
         var used = {};
         Home.inputs().forEach(function (i) { used[i.hdmi] = true; });
@@ -607,6 +634,7 @@
 
     var renameDone = null;
 
+    // Shows the rename overlay; done(name) runs only if the user saves a non-empty name.
     function rename(current, done) {
         renameDone = done;
         $('rename-input').value = current;
@@ -625,6 +653,7 @@
 
     // ---------- Advanced
 
+    // Advanced page. "Export settings" only appears when a dev log server is configured.
     function advancedEntries() {
         var entries = [
             {
@@ -661,6 +690,7 @@
 
     // ---------- Registration
 
+    // Called once from boot.js, before Home.init(), to register every Settings screen.
     function init() {
         registerList('settings', overviewEntries,
             [['OK', 'Change'], ['◀ ▶', 'Switch column'], ['Back', 'Home']], true);
@@ -751,6 +781,7 @@
             }
         });
 
+        // A fresh app list arrived while the editor is open: refresh it, unless a move is in progress.
         Home.onAppsChanged(function () {
             if (UI.isVisible('homeapps') && ed.moving < 0) {
                 edLoad();
@@ -760,5 +791,6 @@
         });
     }
 
+    // openSamsungHome is exported for the Play-key shortcut in home.js.
     window.Settings = { init: init, openSamsungHome: openSamsungHome };
 })();

@@ -5,9 +5,11 @@
 (function () {
     'use strict';
 
+    // localStorage keys. Bump the version suffix only if the stored shape changes incompatibly.
     var KEY = 'arn0.prefs.v1';
     var LEGACY_WALLPAPER_KEY = 'arn0.wallpaper';
 
+    // Starting values, read from js/config.js where it has an opinion.
     function defaults() {
         var cfg = window.LAUNCHER_CONFIG || {};
         var theme = cfg.theme || {};
@@ -40,6 +42,7 @@
         };
     }
 
+    // Copies only keys that exist in the defaults, so stale keys from older versions are dropped.
     function merge(target, saved) {
         if (!saved) return;
         Object.keys(target).forEach(function (k) {
@@ -47,6 +50,7 @@
         });
     }
 
+    // Defaults overlaid with whatever was saved on this TV.
     function load() {
         var prefs = defaults();
         try {
@@ -75,6 +79,7 @@
 
     var prefs = load();
 
+    // Persists the in-memory prefs. Callers mutate Prefs.get() first, then call this.
     function save() {
         try {
             localStorage.setItem(KEY, JSON.stringify(prefs));
@@ -85,6 +90,7 @@
         }
     }
 
+    // Settings > Advanced > Reset: forget everything saved and go back to config.js defaults.
     function reset() {
         try {
             localStorage.removeItem(KEY);

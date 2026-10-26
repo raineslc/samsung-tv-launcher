@@ -4,11 +4,21 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 
+// UPSTREAM ONLY - NOT USED ON THE Q80D.
+// Native helper that makes the launcher the TV's Home-button target by writing Samsung's
+// vconf settings directly. It snapshots the original values first and can verify/restore them.
+//   Control query                      print current Home/boot settings as JSON
+//   Control verify|apply|restore FILE  compare / switch Home to the launcher / put the original back
+// Guard() refuses to run on anything but the upstream author's 2022 Q70B firmware
+// (T-PTMDEUC-1720.7). This TV runs T-NKMAKUC-2743.0 (Tizen 8), so it stops before writing
+// anything. That is intentional: the Home button stays Samsung's (see README).
 internal static class Control
 {
+    // Must match the app id in src/config.xml.
     private const string Target = "Arn0Lnchr0.Launcher";
     private const string TargetPackage = "Arn0Lnchr0";
     private const string MainOperation = "http://tizen.org/appcontrol/operation/main";
+    // vconf keys (Samsung's system settings store) that decide what opens on Home and at boot.
     private const string AutoKey = "db/menu/smart_hub/ontvsetting/auto_start";
     private const string HomeKey = "db/appfw/home_appid";
     private static readonly string[] Keys = {
@@ -18,6 +28,7 @@ internal static class Control
         "db/first_screen/type"
     };
 
+    // Tizen system libraries (only exist on the TV).
     [DllImport("libbundle.so.0")] private static extern IntPtr bundle_create();
     [DllImport("libbundle.so.0")] private static extern void bundle_free(IntPtr bundle);
     [DllImport("libaul.so.0")] private static extern int aul_svc_set_operation(IntPtr bundle, string operation);
@@ -31,6 +42,7 @@ internal static class Control
     [DllImport("libc")] private static extern uint getuid();
     [DllImport("libc")] private static extern void free(IntPtr ptr);
 
+    // The settings this tool touches, saved before any change so they can be restored exactly.
     private sealed class Snapshot
     {
         public string Home { get; set; }
@@ -38,6 +50,7 @@ internal static class Control
         public int Autostart { get; set; }
     }
 
+    // Safety stops: 32-bit SDK process, SDK user 901, and the one firmware this was tested on.
     private static void Guard()
     {
         if (IntPtr.Size != 4) throw new Exception("Expected 32-bit process; stopped");
@@ -47,6 +60,7 @@ internal static class Control
             throw new Exception("Firmware guard mismatch; stopped");
     }
 
+    // Reads a vconf string; vconf allocates it, so it must be freed.
     private static string ReadString(string key)
     {
         IntPtr ptr = vconf_get_str(key);
@@ -55,6 +69,7 @@ internal static class Control
         finally { free(ptr); }
     }
 
+    // Asks the app framework which app answers the "main" operation (the Home button target).
     private static string ReadHome()
     {
         IntPtr bundle = bundle_create();
@@ -72,6 +87,7 @@ internal static class Control
         finally { bundle_free(bundle); }
     }
 
+    // Reads every setting this tool can change.
     private static Snapshot Query()
     {
         var s = new Snapshot { Home = ReadHome(), Strings = new Dictionary<string, string>() };
@@ -82,6 +98,7 @@ internal static class Control
         return s;
     }
 
+    // Loads and validates a saved snapshot; refuses one with missing or blank values.
     private static Snapshot LoadSnapshot(string path)
     {
         var s = JsonSerializer.Deserialize<Snapshot>(File.ReadAllText(path));
@@ -94,6 +111,7 @@ internal static class Control
         return s;
     }
 
+    // Every write is read back and compared, so a silent failure becomes an exception.
     private static void SetString(string key, string value)
     {
         if (vconf_set_str(key, value) != 0 || ReadString(key) != value)
@@ -107,12 +125,14 @@ internal static class Control
             throw new Exception("Write/readback failed: " + key);
     }
 
+    // Points the Home-button operation at appId, then verifies it.
     private static void SetHome(string appId)
     {
         if (app_operation_set_current_app(MainOperation, appId) != 0 || ReadHome() != appId)
             throw new Exception("Home operation write/readback failed");
     }
 
+    // Puts every setting back to the snapshot.
     private static void Restore(Snapshot s)
     {
         SetHome(s.Home);
@@ -120,6 +140,7 @@ internal static class Control
         SetInt(AutoKey, s.Autostart);
     }
 
+    // Apply/verify only proceed if the TV still matches the saved original exactly.
     private static void RequireOriginal(Snapshot before, Snapshot original)
     {
         if (before.Home != original.Home) throw new Exception("Home operation differs from saved original");
@@ -130,6 +151,7 @@ internal static class Control
             throw new Exception("Autostart differs from saved original");
     }
 
+    // Restore only proceeds if each value is either the original or the launcher (nothing unexpected).
     private static void RequireRestorable(Snapshot before, Snapshot original)
     {
         if (before.Home != original.Home && before.Home != Target)
@@ -141,6 +163,7 @@ internal static class Control
             throw new Exception("Autostart changed unexpectedly; refusing restore");
     }
 
+    // Any failure during apply triggers an automatic restore before the error is reported.
     private static int Main(string[] args)
     {
         try

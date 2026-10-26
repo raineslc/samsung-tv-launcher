@@ -2,9 +2,11 @@
 (function () {
     'use strict';
 
+    // Last 200 messages (for the Lab screen) and functions to notify on each new line.
     var lines = [];
     var listeners = [];
 
+    // Fire-and-forget POST to the dev log server, only if config.devLogUrl is set.
     function send(entry) {
         var url = window.LAUNCHER_CONFIG && window.LAUNCHER_CONFIG.devLogUrl;
         if (!url) return;
@@ -19,11 +21,13 @@
         }
     }
 
+    // Readable text for Tizen WebAPIException, Error, or anything else thrown.
     function errorText(err) {
         if (!err) return String(err);
         return (err.name ? err.name + ': ' : '') + (err.message || String(err));
     }
 
+    // Logs to the console, the Lab screen and (optionally) the PC. `data` is any JSON-able extra.
     function log(message, data) {
         var entry = { t: new Date().toISOString(), message: message };
         if (data !== undefined) entry.data = data;

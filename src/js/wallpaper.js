@@ -2,6 +2,7 @@
 (function () {
     'use strict';
 
+    // Rotation choices shown in Settings > Background.
     var INTERVALS = [
         { key: 'open', label: 'Each time Home opens', ms: 0 },
         { key: '30s', label: '30 s', ms: 30 * 1000 },
@@ -11,14 +12,17 @@
         { key: '1d', label: 'Daily', ms: 24 * 60 * 60 * 1000 }
     ];
 
+    // Incremented per display() call so a slow image load cannot overwrite a newer choice.
     var token = 0;
 
     function list() { return window.WALLPAPERS || []; }
 
+    // Wallpaper by key, falling back to the first one if the key is unknown (e.g. a removed photo).
     function find(key) {
         return list().find(function (w) { return w.key === key; }) || list()[0] || null;
     }
 
+    // Interval by key, falling back to 15 min.
     function interval(key) {
         var find = function (k) { return INTERVALS.find(function (i) { return i.key === k; }); };
         return find(key) || find('15m');
@@ -42,11 +46,13 @@
         img.src = w.file;
     }
 
+    // Shows whatever Prefs currently says (Off = plain gradient).
     function apply() {
         var p = Prefs.get().wallpaper;
         display(p.mode === 'off' ? null : find(p.photo));
     }
 
+    // Advances to the next photo (Green key, or a rotation tick). Turns Off into Photo.
     function next() {
         var p = Prefs.get().wallpaper;
         var l = list();
@@ -60,6 +66,7 @@
         return find(p.photo);
     }
 
+    // True when Rotate is on and the interval has passed since the last change.
     function due() {
         var p = Prefs.get().wallpaper;
         var ms = interval(p.interval).ms;
@@ -72,6 +79,7 @@
         if (p.mode === 'rotate' && (p.interval === 'open' || due())) next();
     }
 
+    // Called once by home.js: show the current wallpaper and start the 5 s rotation check.
     function start() {
         apply();
         homeShown();

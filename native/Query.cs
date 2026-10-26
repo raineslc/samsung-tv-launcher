@@ -2,6 +2,10 @@ using System;
 using System.IO;
 using System.Runtime.InteropServices;
 
+// UPSTREAM ONLY - NOT USED ON THE Q80D.
+// Read-only companion to Control.cs: prints the TV's current Home/boot settings and whether
+// the TV considers the launcher eligible to boot. Changes nothing.
+// Same firmware guard as Control.cs, so it also stops on this TV's firmware.
 internal static class Query
 {
     private const string TargetApp = "Arn0Lnchr0.Launcher";
@@ -13,6 +17,7 @@ internal static class Query
     };
     private const string AutoKey = "db/menu/smart_hub/ontvsetting/auto_start";
 
+    // Tizen system libraries (only exist on the TV).
     [DllImport("libbundle.so.0")] private static extern IntPtr bundle_create();
     [DllImport("libbundle.so.0")] private static extern void bundle_free(IntPtr bundle);
     [DllImport("libaul.so.0")] private static extern int aul_svc_set_operation(IntPtr bundle, string operation);
@@ -23,6 +28,7 @@ internal static class Query
     [DllImport("libc")] private static extern uint getuid();
     [DllImport("libc")] private static extern void free(IntPtr ptr);
 
+    // Reads a vconf string and frees the native copy.
     private static string ReadVconf(string key)
     {
         IntPtr value = vconf_get_str(key);
@@ -31,6 +37,7 @@ internal static class Query
         finally { free(value); }
     }
 
+    // Which app the Home button currently opens.
     private static string ReadHomeOperation()
     {
         IntPtr bundle = bundle_create();
